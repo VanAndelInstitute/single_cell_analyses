@@ -55,9 +55,33 @@ a:visited{
 }
 
 .r {
-    background-color: #E4E5ED;
+    background-color: #f3f3f3;
+}
+
+pre.r::before {
+  content: ">>> R:\A\A";
+  white-space: pre;
+  color: gray;
+}
+
+pre.bash::before {
+  content: ">>> shell:\A\A";
+  white-space: pre;
+  color: navy;
+  font-weight: 900;
+}
+
+pre.python::before {
+  content: " >>> Python:\A\A";
+  white-space: pre;
+  color: #FA7D1C;
+  font-weight: 900;
+}
+
+.bash {
+    background-color: #C8DEFA;
 }
 
 .python {
-    background-color: #E4EDE4;
+    background-color: #FAEBC0;
 }

@@ -15,19 +15,26 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 # Introduction
 
-This document attempts to describe analysis of RNA Velocity derived from single cell RNASeq data starting as close to the very beginning as possible. There are several algorithms and software packages for performing this analysis. The approach we take here uses the `alevin` facility of the `salmon` sequence aligner, followed by the RNA velocity computation algorithm implemented by `scVelo`. There are other approaches, perhaps most notably `velocyto`. There are various arguments why one or another algorithm is or is not superior. Frequently such arguments are an example of gilding the lilly since these analyses are simply a first step towards a long program of validation in the laboratory. Given the time and resources involved in that journey of validation, it is good to take the best first step you can. But it is even more important to take that step. This document is designed to make that step easier. You can then go on to explore other options for that step as time and interest allow. 
+This document attempts to describe analysis of RNA Velocity derived from single cell RNASeq data starting as close to the very beginning as possible. There are several algorithms and software packages for performing this analysis. The approach we take here uses the `alevin` facility of the `salmon` sequence aligner, followed by the RNA velocity computation algorithm implemented by `scVelo`. There are other approaches, perhaps most notably `velocyto`. There are various arguments why one or another algorithm is or is not superior. Frequently such arguments are an example of gilding the lilly since these analyses are simply a first step towards a long program of validation in the laboratory. Given the time and resources involved in that journey of validation, it is good to take the best first step you can. But it is even more important to **take that step**. This document is designed to make that step easier. You can then go on to explore other options for that step as time and interest allow. 
 
-Getting your environment set up will require working from the command line. But once the tools you need are there, the rest of the analysis can be done in an R session, including from within an RMarkdown document (like this one). We will make use of the `reticulate` package to call Python from R. (Alternatively you can do the same thing from Python by embedding R with the rpy2 package. It just so happens that we are happiest working in RStudio with RMarkdown documents as our instruments of reproducible research. But, for example, Python and Jupyter notebooks would be just as fine. What you CAN'T do, it turns out, is use rpy2 from within an R session. If you try to embed an R session in a Python session embedded in an R session, things get weird.)
+Getting your environment set up will require working from the command line. But once the tools you need are there, the rest of the analysis can be done in an R session, including from within an RMarkdown document (like this one). We will make use of the `reticulate` package to call Python from R. (Alternatively you can do the same thing from Python by embedding R with the rpy2 package. It just so happens that we are happiest working in RStudio with RMarkdown documents as our instruments of reproducible research. But, for example, Python and Jupyter notebooks would be just as fine. What you CAN'T do, it turns out, is use rpy2 from within an R session. If you try to embed an R session in a Python session embedded in an R session, things get weird.) 
+
+**Note** that while shell commands need to be run at the command line, both the R and Python commands below are meant to be run from within an RStudio RMarkdown document (such as the one you are reading now). This allows for seamless intercommunication between the R and Python sessions. You can execute both the R and Python code segments below within R studio (adjusting as needed for your own data files).
+
+The analysis proceeds along the following steps:
+
+1. Installation of pre-requisite software components.
+2. Downloading and indexing the genome
+3. Aligning your sequencing reads to intronic and exonic regions of the genome
+4. Performing the RNA Velocity calculation
 
 # Pre-requisites
 
 This document assumes that you are working in a Linux-ish environment (including macOS). If you are using Windows, most of what follows should be pretty easy to follow but you might need to adapt slightly for your environment (for example, mingw or cygwin). 
 
+**Note**: The following has only been thoroughly tested on Linux Ubuntu 18.04. If you find any of this is not platform independent, please [open an issue](https://github.com/VanAndelInstitute/single_cell_analyses/issues) on github.
+
 If you do not have them already, you will need installations of R and Python.
-
-## R
-
-An installation of R >= version 4.0 is required for this analysis. The lowest activation energy path to that is via [RStudio](https://rstudio.com/products/rstudio/download/#download).
 
 ## Python
 
@@ -75,3 +82,209 @@ pip install git+https://github.com/theislab/scvelo
 conda deactivate
 
 ```
+
+
+## R
+
+An installation of R >= version 4.0 is required for this analysis. The lowest activation energy path to that is via [RStudio](https://rstudio.com/products/rstudio/download/#download).
+
+Then you will also need a number of R packages. These packages themselves have dependencies that must be installed. Use 
+your package management system to do something like this:
+
+```{bash}
+sudo -s
+apt-get update
+apt-get -y install libssl-dev
+apt-get -y install libcurl4-openssl-dev
+apt-get -y install libxml2-dev
+
+```
+
+### Installation without root access
+
+If you do not have root access, you will need to download the ssl, xml2, and curl libraries and build and 
+install them in a local directory. First add lines similar to this to your `~/.bashrc`:
+
+```{bash}
+export PATH=$PATH:~/local/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/local/lib
+CPPFLAGS=-I$HOME/local/include
+LDFLAGS=-L$HOME/local/lib
+```
+
+And then you can build the necessary tools and install them locally. For example:
+
+```{bash}
+cd ~/
+mkdir local
+mkdir build
+cd build
+curl https://www.openssl.org/source/openssl-1.1.1g.tar.gz\
+ -o openssl-1.1.1g.tar.gz
+tar -zxvf openssl-1.1.1g.tar.gz
+cd openssl-1.1.1g
+./config --prefix=/home/erikor/local
+make
+make install
+```
+
+(Note that the openssl has a `config` script, whereas most other tools have a `configure` script. Irritating, I know. 
+But both take the `--prefix` argument to specify the location of your local installation.) 
+
+If needed, you can even build and R the same way. Although if you need to build R, you will also need to install the 
+PCRE2 and zlib libraries in a manner analagous to the above. Then:
+
+```{bash}
+curl https://cran.r-project.org/src/base/R-4/R-4.0.0.tar.gz -o \
+  R-4.0.0.tar.gz
+tar -zxvf R-4.0.0.tar.gz
+cd R-4.0.0
+./configure --prefix=/home/erikor/local --without-x --without-readline --without-pcre1
+make
+make install
+```
+
+## R packages
+
+Once you have R installed you can install the necessary packages:
+
+```{r}
+setRepositories(ind = 1:6)
+req <- c("Biostrings",  
+         "BSgenome",
+         "GenomicFeatures",
+         "SummarizedExperiment",
+         "eisaR",
+         "tximeta",
+         "rjson",
+         "reticulate",
+         "SingleCellExperiment",
+         "scater", 
+         "ggplot2", 
+         "reshape2",
+         "foreach")
+         
+
+ix <- which(!req %in% installed.packages())
+if(length(ix))  
+  install.packages(req[ix])
+
+```
+
+## Salmon
+
+Salmon can be easily installed using `conda`. We will install it in its own environment, separate from the scvelo environment
+we created above, to avoid any dependency collisions.
+
+```{bash}
+# in case we are already in an environment
+conda deactivate
+
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda create -n salmon salmon
+
+```
+
+Now the hard part is over. On to data analysis.
+
+# Genome index
+
+The next step is to download the appropriate genome fastas and index them. But before we index the genome, we need to do 
+some initial steps to facilitate identifying whether a given read aligns to an intronic region, and exonic region, or 
+both. 
+
+First we download the genome files. Here we download the human genome. Download an analagous genome for the organism you 
+are working with. 
+
+```{bash}
+#adjust as needed to point to where you want the data to be stored
+cd /mnt/data
+mkdir genomes
+mdkir genomes/hs38
+
+ROOT_DIR=/mnt/data/genomes/hs38/
+cd $ROOT_DIR
+
+curl ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/gencode.v34.annotation.gtf.gz \
+  -o gencode.v34.annotation.gtf.gz 
+  
+curl ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/GRCh38.primary_assembly.genome.fa.gz \
+  -o GRCh38.primary_assembly.genome.fa.gz
+
+gunzip GRCh38.primary_assembly.genome.fa.gz
+
+```
+
+We then extract genomic coordinates of introns and exons, with a flank length of 90 (you can adjust the flank size 
+depending on the lengths of your transcript reads).
+
+```{r}
+# adjust as needed to point to where you want the indexes stored
+# don't forget the trailing slash
+root_dir <- "/mnt/data/genomes/hs38/"
+
+gtf <- paste0(root_dir, "gencode.v34.annotation.gtf.gz")
+fasta <- paste0(root_dir, "GRCh38.primary_assembly.genome.fa")
+grl <- getFeatureRanges(
+  gtf = gtf,
+  featureType = c("spliced", "intron"), 
+  intronType = "separate", 
+  flankLength = 90L, 
+  joinOverlappingIntrons = FALSE, 
+  verbose = TRUE
+)
+
+```
+
+We then extract just these regions to a new fasta file, and intron/exon annotations to a new gtf.
+
+```{r}
+genome <- Biostrings::readDNAStringSet(
+    fasta
+)
+names(genome) <- sapply(strsplit(names(genome), " "), .subset, 1)
+seqs <- GenomicFeatures::extractTranscriptSeqs(
+  x = genome, 
+  transcripts = grl
+)
+
+Biostrings::writeXStringSet(
+    seqs, filepath = paste0(root_dir, "GRCh38.primary_assembly.genome.expanded.fa")
+)
+
+eisaR::exportToGtf(
+  grl, 
+  filepath = paste0(root_dir, "gencode.vH34.annotation.expanded.gtf")
+)
+```
+
+We need lookup tables to match introns and exons to eachother and then to gene ids
+
+```{r}
+write.table(
+    metadata(grl)$corrgene, 
+    file = paste0(root_dir, "gencode.vH34.annotation.expanded.features.tsv"),
+    row.names = FALSE, col.names = TRUE, quote = FALSE, sep = "\t"
+)
+
+df <- eisaR::getTx2Gene(
+    grl, filepath = paste0(root_dir, "gencode.vH34.annotation.expanded.tx2gene.tsv")
+)
+
+```
+
+We then index these sequences using salmon (and using the whole genome as a decoy to avoid 
+lower quality mapping to introns or exons when perfect matches elsewhere exist). 
+
+```{bash}
+grep ">" ${ROOT_DIR}GRCh38.primary_assembly.genome.fa | cut -d ">" -f 2 | cut -d " " -f 1 > ${ROOT_DIR}GRCh38.primary_assembly.genome.chrnames.txt
+
+salmon index \
+-t <(cat ${ROOT_DIR}GRCh38.primary_assembly.genome.expanded.fa ${ROOT_DIR}GRCh38.primary_assembly.genome.fa) \
+-i ${ROOT_DIR}gencode.vH34.annotation.expanded.sidx --gencode -p 10 \
+-d ${ROOT_DIR}GRCh38.primary_assembly.genome.chrnames.txt
+
+```
+
+
