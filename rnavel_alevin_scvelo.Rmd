@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 
 This document attempts to describe analysis of RNA Velocity derived from single cell RNASeq data starting as close to the very beginning as possible. There are several algorithms and software packages for performing this analysis. The approach we take here uses the `alevin` facility of the `salmon` sequence aligner, followed by the RNA velocity computation algorithm implemented by `scVelo`. There are other approaches, perhaps most notably `velocyto`. There are various arguments why one or another algorithm is or is not superior. Frequently such arguments are an example of gilding the lilly since these analyses are simply a first step towards a long program of validation in the laboratory. Given the time and resources involved in that journey of validation, it is good to take the best first step you can. But it is even more important to take that step. This document is designed to make that step easier. You can then go on to explore other options for that step as time and interest allow. 
 
+Getting your environment set up will require working from the command line. But once the tools you need are there, the rest of the analysis can be done in an R session, including from within an RMarkdown document (like this one). We will make use of the `reticulate` package to call Python from R. (Alternatively you can do the same thing from Python by embedding R with the rpy2 package. It just so happens that we are happiest working in RStudio with RMarkdown documents as our instruments of reproducible research. But, for example, Python and Jupyter notebooks would be just as fine. What you CAN'T do, it turns out, is use rpy2 from within an R session. If you try to embed an R session in a Python session embedded in an R session, things get weird.)
+
 # Pre-requisites
 
 This document assumes that you are working in a Linux-ish environment (including macOS). If you are using Windows, most of what follows should be pretty easy to follow but you might need to adapt slightly for your environment (for example, mingw or cygwin). 
@@ -39,6 +41,8 @@ sudo apt install python2.7 python-pip
 
 On Windows, Python binaries are available from https://www.python.org/. 
 
+Once you have python, you can install miniconda with ease.
+
 ```{bash}
 wget https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh
 chmod 755 Miniconda2-latest-Linux-x86_64.sh
@@ -57,8 +61,17 @@ chmod 755 Miniconda2-latest-Linux-x86_64.sh
 
 If you don't have curl OR wget, then you have done something wrong with your life. No matter, download [the miniconda installer](https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh) with a browser of your choice and run it.
 
+Now we can use miniconda to set up an environment that has everything we need for running scVelo.
 
-```{r cars}
-summary(cars)
+```{bash}
+# in case we are already in the base environment...
+conda deactivate
+
+conda create --name scvelo python=3
+conda activate scvelo
+conda install -c conda-forge numba pytables louvain
+# install latest development branch of scvelo
+pip install git+https://github.com/theislab/scvelo
+conda deactivate
+
 ```
-
