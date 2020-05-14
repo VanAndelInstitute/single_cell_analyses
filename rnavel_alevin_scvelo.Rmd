@@ -10,25 +10,55 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
 
-## R Markdown
+# Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This document attempts to describe analysis of RNA Velocity derived from single cell RNASeq data starting as close to the very beginning as possible. There are several algorithms and software packages for performing this analysis. The approach we take here uses the `alevin` facility of the `salmon` sequence aligner, followed by the RNA velocity computation algorithm implemented by `scVelo`. There are other approaches, perhaps most notably `velocyto`. There are various arguments why one or another algorithm is or is not superior. Frequently such arguments are an example of gilding the lilly since these analyses are simply a first step towards a long program of validation in the laboratory. Given the time and resources involved in that journey of validation, it is good to take the best first step you can. But it is even more important to take that step. This document is designed to make that step easier. You can then go on to explore other options for that step as time and interest allow. 
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# Pre-requisites
+
+This document assumes that you are working in a Linux-ish environment (including macOS). If you are using Windows, most of what follows should be pretty easy to follow but you might need to adapt slightly for your environment (for example, mingw or cygwin). 
+
+If you do not have them already, you will need installations of R and Python.
+
+## R
+
+An installation of R >= version 4.0 is required for this analysis. The lowest activation energy path to that is via [RStudio](https://rstudio.com/products/rstudio/download/#download).
+
+## Python
+
+You will need an installation of Python (verion 3.x). Maintaining Python, its dependencies, its modules, and their dependencies quickly becomes a mess. The easy solution is use an environment management system (`conda`), allowing you to (1) install everything you need without being root and (2) not have to worry about whatever that root person might have installed which conflicts with your requirements. 
+
+There is one catch. To install `miniconda` which we will use to create our environment, you need python already installed. We will install another version of python from within our `conda` environment, but we need python already there to bootsrap things. Catch-22, I know. On MacO2, python 2.7 should already be installed. On Linux, if it is not already there you can install it using your package manager. For example:
+
+```{bash}
+sudo apt install python2.7 python-pip
+```
+
+On Windows, Python binaries are available from https://www.python.org/. 
+
+```{bash}
+wget https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh
+chmod 755 Miniconda2-latest-Linux-x86_64.sh
+./Miniconda2-latest-Linux-x86_64.sh
+
+```
+
+If you don't have `wget` on your system, you can do the same thing with `curl`:
+
+```{bash, eval=FALSE}
+curl https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh -o Miniconda2-latest-Linux-x86_64.sh
+chmod 755 Miniconda2-latest-Linux-x86_64.sh
+./Miniconda2-latest-Linux-x86_64.sh
+
+```
+
+If you don't have curl OR wget, then you have done something wrong with your life. No matter, download [the miniconda installer](https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh) with a browser of your choice and run it.
+
 
 ```{r cars}
 summary(cars)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
