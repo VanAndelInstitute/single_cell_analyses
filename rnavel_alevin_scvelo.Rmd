@@ -201,7 +201,7 @@ are working with.
 #adjust as needed to point to where you want the data to be stored
 cd /mnt/data
 mkdir genomes
-mdkir genomes/hs38
+mdkir genomes/hs34
 
 ROOT_DIR=/mnt/data/genomes/hs38/
 cd $ROOT_DIR
@@ -222,7 +222,7 @@ depending on the lengths of your transcript reads).
 ```{r}
 # adjust as needed to point to where you want the indexes stored
 # don't forget the trailing slash
-root_dir <- "/mnt/data/genomes/hs38/"
+root_dir <- "/mnt/data/genomes/hs34/"
 
 gtf <- paste0(root_dir, "gencode.v34.annotation.gtf.gz")
 fasta <- paste0(root_dir, "GRCh38.primary_assembly.genome.fa")
@@ -287,4 +287,85 @@ salmon index \
 
 ```
 
+And create a linked transcriptome json config file with tximeta
+
+```{r}
+tximeta::makeLinkedTxome(
+  indexDir = paste0(root_dir, "gencode.vH34.annotation.expanded.sidx"), 
+  source = "GENCODE", genome = "GRCh38", 
+  organism = "Homo sapiens", release = "H34", 
+  fasta = paste0(root_dir, "GRCh38.primary_assembly.genome.expanded.fa"), 
+  gtf = paste0(root_dir, "gencode.vH34.annotation.expanded.gtf"), 
+  write = TRUE, jsonFile = paste0(root_dir, "genomes/gencode.vH34.annotation.expanded.json")
+)
+
+# check
+rjson::fromJSON(file = "genomes/gencode.vH34.annotation.expanded.json")
+
+```
+
+Now the hard part is over. Time to align some reads.
+
+# Aligning and counting
+
+Salmon alevin is designed to work with reads generated from 10X chromium chemistry. If you have 
+fastqs from V2 or V3 10X Chromium libraries, you are good to go. If you have fastqs with other 
+libraries with fixed length barcodes and UMIs, you are also good to go but will need to specify
+the barcode and UMI lengths and positions with the `--barcodeLength`, `--umiLength` and `--end` 
+parameters. 
+
+## Working with inDrop libraries
+
+What if you have inDrop libraries? The challenge with inDrop libraries is that Barcode 1 can be 
+8, 9, 10, or 11 bases long. Salmon alevin cannot deal with variable length barcodes. So, we have 
+developed a tool that will take inDrop fastqs and reformat them as if they were 10X genomics 
+fastqs, by trimming and/or padding the barcodes and UMIs. Because of the way the barcodes are 
+designed, this actually introduces little or no ambiguity in the barcodes, surprisingly enough.
+
+If you need to convert inDrop Fastqs, download the tool, build, and install.
+
+```{bash}
+cd ~/build
+curl -L https://github.com/vanandelinstitute/intent/archive/master.tar.gz -o intent.tar.gz
+tar -zxvf intent.tar.gz
+cd intent-master
+make
+
+# if you don't have root access, just copy bin/intent somewhere on your path.
+# of even just run it from bin/intent. But you can copy it to /usr/local/bin by:
+sudo make install
+```
+
+Then you can do something along the lines of:
+
+```{bash}
+intent Day100_inDrop_L000_R1_001.fastq.gz \
+       Day100_inDrop_L000_R2_001.fastq.gz 
+
+```
+
+## Mapping with alevin
+
+And map with alevin. Note that if you do not specify `--forceCells`, then alevin will 
+identify the "good" barcodes automatically using a knee plot. But sometimes that does 
+not go as expected. So specify your expected cells with `--forceCells` if possible.
+
+Also, if you are not using 10XGenomics chromium V2 style fastqs, you will need to specify
+something else in place of `--chromium`. For example, `--chromiumV3`, or explicitly specify 
+`--barcodeLength`, `--umiLength` and `--end` (where `--end` is either "5" or "3", specifying 
+which end the UMI is on relative to the barcode).
+
+```{bash}
+# specify your Read 1 and Read 2 fastq's below.
+# you can specify more than 1 for each if your library is split accross multiple
+# lanes/runs/etc.
+salmon alevin -l ISR -i ${ROOT_DIR}gencode.vH34.annotation.expanded.sidx \
+-1 day_60_R1.fastq.gz \
+-2 day_60_R2.fastq.gz \
+-o alevin_out -p 6 --tgMap ${ROOT_DIR}gencode.vH34.annotation.expanded.tx2gene.tsv \
+--dumpFeatures 
+--forceCells 1000 \
+--chromium
+
+```
 
