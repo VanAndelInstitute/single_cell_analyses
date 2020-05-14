@@ -4,6 +4,10 @@
 
 # Session Data files
 .RData
+*.Rproj
+
+# rendered files
+*.html
 
 # User-specific files
 .Ruserdata
