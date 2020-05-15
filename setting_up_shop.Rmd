@@ -1,0 +1,428 @@
+---
+title: "Setting up Bioinformatics Server"
+author: "The VAI Singularity"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: pygments
+    number_sections: true
+    css: custom.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+
+```
+
+# Introduction
+
+There is a ton of information on the internet for pretty much any sort of
+bioinformatics analysis you might want to do. The challenge is that they all
+start from Somewhere, and Somewhere is usually not The Very Beginning. This
+document is intended to help you get your computational environment
+bootstrapped[^1].
+
+This will also establish a common foundation on which our other tutorials build,
+thus reducing redundancy and allowing us to cut right to the chase in those.
+
+# Get a server
+
+A server is just a computer with network access. When we talk about a computer
+as a "server" we just mean we intend to access the computer remotely. Why
+remotely? Because a lot bioinformatics is computationally intensive and (1)
+takes a while and (2) benefits from lots of RAM and CPUs that you might not have
+on your desktop or laptop. But there is no reason you could not set up these
+tools on your desktop and laptop, and most of us do that too to work on smaller
+tasks. (For example, the end result of crunching a terabyte of FASTQ files is
+usually a matrix of counts of that is only a couple GB in size and is easily
+handled by a modernish desktop or laptop machine for downstream analysis).
+
+So where do you get a server? Your options are:
+
+1. Buy one. (Almost no one picks this option, but you might if you, say, are
+working for a private company and are neurotic about confidentiality.) 
+2. Ask for access to the servers at your institution. 
+3. Create on on a cloud such as AWS.
+
+If option 2 is an option for you, then it may be the best option. There is only
+one drawback. You almost certainly won't get "root" access to that server. This
+means you can't install stuff in the usual places and you can't use the operating 
+system's package management system to install stuff. But with just a little extra
+effort you can install everything you need in your own user directory (you'll just 
+need to build it from source as demonstrated below).
+
+Cloud servers are a great option. While beefy machines in the cloud can cost
+hundreds of dollars a month, you can set up your server just the way you want,
+make an "image" of it, and then shut it down. You can then start a new server
+from that image whenever you need and shut it down when you are done crunching
+data. This can make cloud computing very economical. For example, an m5.8xlarge
+server on AWS, which has 32 processors and 128GB of RAM costs $1.71 per hour.
+Thats $41 per day. On AWS (and, presumably, other cloud providers), you have the
+option of "spot instances" where you get to use unclaimed servers at a steep
+discount. For example, the cost at this moment of a spot instance of an
+m5.*xlarge server is $0.50 per hour, or $12 per day. The drawback being that if
+a full-paying customer comes along and needs the server, it will be shutdown
+without notice. But if you are strategic and don't need to run any specific job
+too long, the risk of interruption is relatively low (and can be further
+mitigated by increasing the amount you are willing to pay). This can be another
+great way to lower costs.
+
+## Setting up a server on AWS.
+
+To Do: Complete this section. 
+
+# Boostrapping the basics
+
+So what software does a basic bioinformatics server need? That depends a fair 
+bit on your personal preferences, but it is hard to imagine a bioinformatics 
+server that does not have R and Python. And because some of the packages you 
+are going to work within those frameworks will need to built from source, you 
+are going to need a set of build tools (the gcc compiler and related components).
+
+We will demonstrate getting these tools setup in two scenarios. The first is for 
+the situation where you have root access and can use your system's package 
+management tools to install pre-compiled binaries of the necessary components. 
+The second scenario is where you can't log in as root (or don't have a package 
+management system or can't use it for some reason)
+
+## Scenario 1: You can login as root
+
+Here We will be using the `apt` package manager used by Debian systems (which includes
+the very popular Ubuntu distribution.) The approach should be very similar for other
+package management systems (like `yum`, or even `homebrew` on macOS). Log on to your 
+server and enter the following commands:
+
+```{bash}
+
+# open a super user shell so we don't need to type sudo before everything 
+
+sudo -s
+apt-get update
+
+# gcc and related tools
+apt-get -y install build-essential
+apt-get -y install gfortran
+apt -y install python2.7 python-pip
+
+```
+
+Now we want the very latest and greatest version of R, which as of this writing 
+is R 4.0. The problem here is that maintaining an entire Linux distribution is 
+kind of a big job, so the latest R in your distribution's base repositories is 
+probably out of date. So we need to find out what distribution we have and 
+update the package source list appropriately. Oh, and add the security key for 
+that package source too.
+
+```{bash}
+# make sure you are still sudo
+
+# a little shell magic to get our Ubuntu release's "codename"
+RELEASE=$(lsb_release -as 2>/dev/null | tail -n1)
+
+echo "deb https://cloud.r-project.org/bin/linux/ubuntu ${RELEASE}-cran40/" >> /etc/apt/sources.list
+gpg --keyserver keyserver.ubuntu.com --recv-key E298A3A825C0D65DFD57CBB651716619E084DAB9
+apt-get update
+apt-get -y install r-base
+
+```
+
+You can now test out your R installation. The following should report the latest
+version of R, as shown.
+
+```{bash}
+R --version
+
+#R version 4.0.0 (2020-04-24) -- "Arbor Day"
+#Copyright (C) 2020 The R Foundation for Statistical Computing
+#Platform: x86_64-pc-linux-gnu (64-bit)
+#
+#R is free software and comes with ABSOLUTELY NO WARRANTY.
+#You are welcome to redistribute it under the terms of the
+#GNU General Public License versions 2 or 3.
+#For more information about these matters see
+#https://www.gnu.org/licenses/.
+
+```
+
+A number of key bioinformatic tools we are going to want to use rely on either
+(1) file compression, (2) XML formatted metadata or (3) transfer of files over 
+the internet. In order for R to install these tools it will need to build them 
+from source to ensure they work with your particular system. And to do that 
+requires some system libraries that may not be present on a vanilla linux 
+distribution. So we will install them.
+
+```{bash}
+sudo -s
+apt-get update
+apt-get -y install libssl-dev
+apt-get -y install libcurl4-openssl-dev
+apt-get -y install libxml2-dev
+apt-get -y install libtool-bin
+```
+
+If you have taken this route, you can now skip to the next main section on 
+installing conda. But if you can't do the above, continue on for instructions 
+on achieving the same goals without being logged in as root.
+
+## Scenario 2: Build and install locally
+
+The same environment as set up above by root can be installed locally. But you 
+cannot use the package management system to install things locally. (At least 
+you can't install debian packages locally. At least [not easily]https://askubuntu.com/questions/339/how-can-i-install-a-package-without-root-access.)
+So you will need to build these components from source. This takes a little 
+longer but is not really hard to do. This does require the gcc tool chain, perl, 
+and python to be available on your server. If the server you have access to does 
+not have these tools available, something is not right with the world. Email the 
+system administrator and ask how you can access these tools. If the answer is 
+"it is impossible" then it is time to launch your own server in the cloud (see 
+above).
+
+First we need to do a little setup. You are basically going to create your own 
+Linux styled filesystem in your home directory (or anywhwere else of your 
+choosing) and install there.
+
+```{bash}
+cd ~/
+
+# your "root" directory
+mkdir local
+
+# just a place to put stuff to stay organized
+mkdir build
+
+```
+
+We then need to tell your environment to look in this local directory 
+for executable, headers, and libaries. The following shell commands will 
+add the necessary directories to your path and compiler flags.
+
+```{bash}
+
+echo export PATH=$HOME/local/bin:$HOME/local/lib:\$PATH >> ~/.bashrc
+echo export C_INCLUDE_PATH=$HOME/local/include:$HOME/local/include/readline >> ~/.bashrc
+echo export CPPFLAGS=\'-I$HOME/local/include -I$HOME/local/include/readline\' >> ~/.bashrc
+echo export CFLAGS=\'-I$HOME/local/include -I$HOME/local/include/readline\' >> ~/.bashrc
+echo export CXXFLAGS=\'-I$HOME/local/include-I$HOME/local/include/readline\' >> ~/.bashrc
+echo export LD_LIBRARY_PATH=$HOME/local/lib >> ~/.bashrc
+echo export LIBRARYPATH=$HOME/local/lib >> ~/.bashrc
+echo export LIBPATH=$HOME/local/lib >> ~/.bashrc
+echo export LDFLAGS=-L$HOME/local/lib >> ~/.bashrc
+echo export CPLUS_INCLUDE_PATH=$HOME/local/include >> ~/.bashrc
+
+# start a new shell session to load updated variables
+bash
+```
+
+Now we can build and install our supporting libraries. The theme here is that 
+we will follow these steps for each library:
+
+1. Download source
+2. Unpack the library
+3. Move into the library directory
+4. Run the `configure` script with the --prefix=/home/yourusername/local flag
+5. `make`, `make install`
+
+The only detail is that some essential libraries don't quite follow the `configre --prefix=...` 
+convention. Some have a `config` or `Config` script. These variations will be
+highlighted below.
+
+Note also that we use `curl -o` to download. The `wget` command is simpler as it 
+does not require specifying the output file name. But `wget` is not installed on 
+all systems. But feel free to use it if you have it.
+
+First SSL.
+
+
+```{bash}
+curl https://www.openssl.org/source/openssl-1.1.1g.tar.gz -o openssl-1.1.1g.tar.gz
+tar -zxvf openssl*
+sc openssl-1.1.1g
+./configure --prefix=$HOME/local
+make
+make install
+
+```
+
+Now the zlib, lzma, and bzip2 libraries
+
+```{bash}
+cd ~/build
+curl https://zlib.net/zlib-1.2.11.tar.gz -o zlib-1.2.11.tar.gz 
+tar -zxvf zlib*
+cd zlib-1.2.11
+./configure --prefix=$HOME/local
+make
+make install
+
+cd ~/build
+curl https://www.sourceware.org/pub/bzip2/bzip2-latest.tar.gz \
+ -o bzip2-latest.tar.gz
+tar -zxvf bzip*
+cd bzip2-1.0.8/
+
+# No configure!
+make
+make install PREFIX==$HOME/local
+
+curl -L https://tukaani.org/xz/xz-5.2.5.tar.gz \
+  -o xz-5.2.5.tar.gz
+tar -zxvf xz*
+cd xz-5.2.5
+./configure --prefix=$HOME/local
+make
+make install
+
+```
+
+Next, the curl libraries. Yes, you already have the curl program, but you also 
+need the development headers and the libraries to build R. 
+
+```{bash}
+cd ~/build
+# oh the irony!
+curl -L https://github.com/curl/curl/releases/download/curl-7_70_0/curl-7.70.0.tar.gz \
+  -o curl-7.70.0.tar.gz
+tar -zxvf curl*
+cd curl-7.70.0
+./configure --prefix=/home/ubuntu/local
+make
+make install
+
+```
+
+Almost there. Next libxml2 and pcre2
+
+```{bash}
+cd ~/build
+curl -L ftp://xmlsoft.org/libxml2/libxml2-2.9.9.tar.gz \
+  -o libxml2-2.9.9.tar.gz
+tar -zxvf libxml*
+cd libxml2-2.9.9
+./configure --prefix=/home/ubuntu/local
+make
+
+# NOTE: you will get some errors about not being able to install python packages.
+# that is ok. I think.
+make install
+
+cd ~/build
+curl -L https://sourceforge.net/projects/pcre/files/pcre2/10.35/pcre2-10.35.tar.gz/download \
+  -o pcre2-10.35.tar.gz
+tar -zxvf pcre2*
+cd pcre2-10.35
+./configure --prefix=/home/ubuntu/local
+make
+
+```
+
+And a couple of graphics formats libaries. Do JPEG first so JPEG support is included 
+in libtiff.
+
+```{bash}
+# jpeg building is a little finicky. try the below.
+# if it won't work that is fine...you just won't have jpeg
+# support in R or in TIFF
+cd ~/build
+curl -L https://sourceforge.net/projects/libjpeg/files/libjpeg/6b/jpegsrc.v6b.tar.gz/download \
+  -o jpegsrc.v6b.tar.gz
+tar -zxvf jpeg*
+cd jpeg-6b
+./configure --prefix=$HOME/local --enable-shared --enable-static
+# note extra libtool argument
+make LIBTOOL=libtool
+make LIBTOOL=libtool install
+
+cd ~/build
+curl -L https://sourceforge.net/projects/libpng/files/libpng16/1.6.37/libpng-1.6.37.tar.gz/download \
+  -o libpng-1.6.37.tar.gz
+tar -zxvf libpng*
+cd libpng-1.6.37
+./configure --prefix=$HOME/local
+make
+make install
+
+cd ~/build
+curl -L https://download.osgeo.org/libtiff/tiff-4.1.0.tar.gz -o tiff-4.1.0.tar.gz \
+  -o tiff-4.1.0.tar.gz
+tar -zxvf tiff*
+cd tiff-4.1.0
+./configure --prefix=$HOME/local
+make
+make install
+```
+
+You can compile R without readline, but readline gives tab completion 
+which is very handy. So, we will install it. But don't install the very latest 
+readline as that seems to break `awk` which leads to general badness.
+
+```{bash}
+cd ~/build
+curl -L https://ftp.gnu.org/gnu/readline/readline-6.2.tar.gz \
+  -o readline-6.2.tar.gz
+tar -zxvf readline
+cd readline-6.2
+./configure --prefix=$HOME/local
+make
+make install
+
+# readline expects termcap library at runtime, and won't catch its absence
+# with configure. so we will install it.
+curl -L https://ftp.gnu.org/gnu/termcap/termcap-1.3.1.tar.gz -o termcap-1.3.1.tar.gz
+tar -zxvf termcap*
+cd termcap-1.3.1
+
+# this configure script will not interpret the --prefix argument
+# correctly for some reason.
+./configure
+make
+# so we install "manually"
+cp libtermcap.a $HOME/local/lib
+
+```
+
+Finally, we build R.
+
+```{bash}
+cd ~/build
+curl https://cran.r-project.org/src/base/R-4/R-4.0.0.tar.gz -o R-4.0.0.tar.gz
+tar -zxvf R-4.0.0.tar.gz
+cd R-4.0.0
+./configure --prefix=$HOME/local --without-x
+make
+make install
+
+```
+
+There. That wasn't so bad, was it?
+
+# RStudio Server
+
+To Do. (Note you have to have root access to do this)
+
+# Conda environment manager
+
+We are going to want to use `conda` to create encapsulated environments 
+to install various toolchains (like salmon and scVelo) so that we don't need 
+to worry any further about dependencies or other tools on our system. (Note 
+that although you can install various versions of python with conda, the conda 
+instsaller requires python to be present already to run. So that is why we 
+installed python above.) Download and execute the install script and answer 
+the prompts to install. I like to install miniconda in $HOME/local/share since 
+that seems most consistent with other stand alone applications on other 
+systems. Note that the installation will automatically add the install location 
+to your PATH so you will be ready to go when the install completes.
+
+```{bash}
+mkdir $HOME/local/share
+curl https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh \
+  -o Miniconda2-latest-Linux-x86_64.sh
+chmod 755 Miniconda2-latest-Linux-x86_64.sh
+./Miniconda2-latest-Linux-x86_64.sh
+
+```
+
+
+
+
+[^1]: boot·strap (ˈbōōtˌstrap): get (oneself or something) into or out of a
+situation using existing resources. gerund or present participle: bootstrapping.
