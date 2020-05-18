@@ -123,6 +123,14 @@ conda config --add channels conda-forge
 conda config --add channels bioconda
 conda create -n salmon salmon
 
+# need to update to latest version
+conda activate salmon
+wget https://github.com/COMBINE-lab/salmon/releases/download/v1.2.1/salmon-1.2.1_linux_x86_64.tar.gz
+tar -zxvf salmon-1.2.1_linux_x86_64.tar.gz
+cd salmon-latest_linux_x86_64/
+cp -R * ~/local/share/miniconda/envs/salmon/
+
+conda deactivate
 ```
 
 Now the hard part is over. On to mapping and counting.
@@ -142,7 +150,7 @@ cd /mnt/data
 mkdir genomes
 mdkir genomes/hs34
 
-ROOT_DIR=/mnt/data/genomes/hs38/
+ROOT_DIR=/mnt/data/genomes/hs34/
 cd $ROOT_DIR
 
 curl ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/gencode.v34.annotation.gtf.gz \

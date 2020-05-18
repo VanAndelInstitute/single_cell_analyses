@@ -1721,7 +1721,16 @@ $(document).ready(function () {
 <a class="sourceLine" id="cb2-3" data-line-number="3"></a>
 <a class="sourceLine" id="cb2-4" data-line-number="4"><span class="ex">conda</span> config --add channels conda-forge</a>
 <a class="sourceLine" id="cb2-5" data-line-number="5"><span class="ex">conda</span> config --add channels bioconda</a>
-<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ex">conda</span> create -n salmon salmon</a></code></pre></div>
+<a class="sourceLine" id="cb2-6" data-line-number="6"><span class="ex">conda</span> create -n salmon salmon</a>
+<a class="sourceLine" id="cb2-7" data-line-number="7"></a>
+<a class="sourceLine" id="cb2-8" data-line-number="8"><span class="co"># need to update to latest version</span></a>
+<a class="sourceLine" id="cb2-9" data-line-number="9"><span class="ex">conda</span> activate salmon</a>
+<a class="sourceLine" id="cb2-10" data-line-number="10"><span class="fu">wget</span> https://github.com/COMBINE-lab/salmon/releases/download/v1.2.1/salmon-1.2.1_linux_x86_64.tar.gz</a>
+<a class="sourceLine" id="cb2-11" data-line-number="11"><span class="fu">tar</span> -zxvf salmon-1.2.1_linux_x86_64.tar.gz</a>
+<a class="sourceLine" id="cb2-12" data-line-number="12"><span class="bu">cd</span> salmon-latest_linux_x86_64/</a>
+<a class="sourceLine" id="cb2-13" data-line-number="13"><span class="fu">cp</span> -R * ~/local/share/miniconda/envs/salmon/</a>
+<a class="sourceLine" id="cb2-14" data-line-number="14"></a>
+<a class="sourceLine" id="cb2-15" data-line-number="15"><span class="ex">conda</span> deactivate</a></code></pre></div>
 <p>Now the hard part is over. On to mapping and counting.</p>
 </div>
 </div>
@@ -1734,7 +1743,7 @@ $(document).ready(function () {
 <a class="sourceLine" id="cb3-3" data-line-number="3"><span class="fu">mkdir</span> genomes</a>
 <a class="sourceLine" id="cb3-4" data-line-number="4"><span class="ex">mdkir</span> genomes/hs34</a>
 <a class="sourceLine" id="cb3-5" data-line-number="5"></a>
-<a class="sourceLine" id="cb3-6" data-line-number="6"><span class="va">ROOT_DIR=</span>/mnt/data/genomes/hs38/</a>
+<a class="sourceLine" id="cb3-6" data-line-number="6"><span class="va">ROOT_DIR=</span>/mnt/data/genomes/hs34/</a>
 <a class="sourceLine" id="cb3-7" data-line-number="7"><span class="bu">cd</span> <span class="va">$ROOT_DIR</span></a>
 <a class="sourceLine" id="cb3-8" data-line-number="8"></a>
 <a class="sourceLine" id="cb3-9" data-line-number="9"><span class="ex">curl</span> ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_34/gencode.v34.annotation.gtf.gz \</a>
