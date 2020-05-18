@@ -401,28 +401,52 @@ To Do. (Note you have to have root access to do this)
 
 # Conda environment manager
 
-We are going to want to use `conda` to create encapsulated environments 
-to install various toolchains (like salmon and scVelo) so that we don't need 
-to worry any further about dependencies or other tools on our system. (Note 
-that although you can install various versions of python with conda, the conda 
-instsaller requires python to be present already to run. So that is why we 
-installed python above.) Download and execute the install script and answer 
-the prompts to install. I like to install miniconda in $HOME/local/share since 
-that seems most consistent with other stand alone applications on other 
-systems. Note that the installation will automatically add the install location 
-to your PATH so you will be ready to go when the install completes.
+You will need an installation of Python (verion 3.x). Maintaining Python, its
+dependencies, its modules, and their dependencies quickly becomes a mess. The
+easy solution is use an environment management system (`conda`), allowing you to
+(1) install everything you need without being root and (2) not have to worry
+about whatever that root person might have installed which conflicts with your
+requirements.
+
+There is one catch. To install `miniconda` which we will use to create our
+environment, you need python already installed. We will install another version
+of python from within our `conda` environment, but we need python already there
+to bootsrap things. Catch-22, I know. On MacOs, and indeed on most Linux-ish
+systems you might find yourself, python 2.7 should already be installed. On
+Linux, if it is not already there you can install it using your package manager.
+For example:
 
 ```{bash}
-mkdir $HOME/local/share
-curl https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh \
-  -o Miniconda2-latest-Linux-x86_64.sh
+sudo apt install python2.7 python-pip
+```
+
+On Windows, Python binaries are available from https://www.python.org/. 
+
+Once you have python, you can install miniconda with ease.
+
+
+```{bash, eval=FALSE}
+curl https://repo.anaconda.com/miniconda/Miniconda2-latest-Linux-x86_64.sh -o Miniconda2-latest-Linux-x86_64.sh
 chmod 755 Miniconda2-latest-Linux-x86_64.sh
 ./Miniconda2-latest-Linux-x86_64.sh
 
 ```
 
+Now we can use miniconda to set up an environment that has everything we need
+for running scVelo.
 
+```{bash}
+# in case we are already in the base environment...
+conda deactivate
 
+conda create --name scvelo python=3
+conda activate scvelo
+conda install -c conda-forge numba pytables louvain
+# install latest development branch of scvelo
+pip install git+https://github.com/theislab/scvelo
+conda deactivate
+
+```
 
 [^1]: boot·strap (ˈbōōtˌstrap): get (oneself or something) into or out of a
 situation using existing resources. gerund or present participle: bootstrapping.
