@@ -1,5 +1,5 @@
 ---
-title: "Setting up Bioinformatics Server"
+title: "Setting up A Bioinformatics Server"
 author: "The VAI Singularity"
 date: "`r Sys.Date()`"
 output:

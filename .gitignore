@@ -8,6 +8,7 @@
 
 # rendered files
 *.html
+!/docs/*.html
 
 # User-specific files
 .Ruserdata
